@@ -222,14 +222,14 @@ export function useWebGLSmokeVolume(canvasRef: RefObject<HTMLCanvasElement | nul
       if (pressing) {
         pressDurationSecRef.current += dt;
         // 클릭 시 화면 밝기 점프를 줄이기 위해 상승 속도를 완만하게
-        smokeOpacityRef.current = Math.min(1, smokeOpacityRef.current + dt * 2.2);
-        carryRef.current = Math.min(1.2, carryRef.current + dt * 0.18);
+        smokeOpacityRef.current = Math.min(1, smokeOpacityRef.current + dt * 2.8);
+        carryRef.current = Math.min(1.45, carryRef.current + dt * 0.28);
       } else {
         smokeOpacityRef.current = Math.max(0, smokeOpacityRef.current - dt * 0.2);
         if (smokeOpacityRef.current > 0.002) {
           intensityFrozenRef.current = Math.max(0, intensityFrozenRef.current - dt * 0.2);
         }
-        carryRef.current = Math.max(0, carryRef.current - dt * 0.075);
+        carryRef.current = Math.max(0, carryRef.current - dt * 0.06);
       }
 
       const spawnRingNow = (ring: {

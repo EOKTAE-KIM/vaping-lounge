@@ -47,8 +47,8 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
     tickLoopRef.current = () => {
       const now = performance.now();
       const dt = now - pressStartAtRef.current;
-      // press 1초보다 빠르게 연기가 차오르도록 상승 속도 상향
-      const intensity = Math.min(1.5, dt <= 0 ? 0 : dt / 460);
+      // 클릭 직후 더 풍성하게 차오르도록 상승 속도/상한 상향
+      const intensity = Math.min(1.8, dt <= 0 ? 0 : dt / 360);
 
       // 너무 잦은 setState 방지(렌더/연기 성능)
       const prev = lastSetRef.current;
@@ -90,8 +90,8 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
       countedRef.current = true;
       onPressCountOnce(mode);
 
-      // 클릭 직후 연기 체감이 확실하도록 시작 강도를 상향
-      setSmokeIntensity(mode === "normal" ? 0.16 : mode === "donut" ? 0.9 : 0.52);
+      // 클릭 직후 연기량을 더 크게 체감하도록 시작 강도 추가 상향
+      setSmokeIntensity(mode === "normal" ? 0.3 : mode === "donut" ? 1.15 : 0.72);
       stopRaf();
       rafRef.current = requestAnimationFrame(tickLoopRef.current);
     },

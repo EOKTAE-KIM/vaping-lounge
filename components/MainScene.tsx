@@ -51,6 +51,7 @@ export function MainScene() {
   const addMessage = useChatStore((s) => s.addMessage);
   const nickname = useUserSessionStore((s) => s.nickname);
   const [chatText, setChatText] = useState("");
+  const fallbackNickname = `억돌이${(userId.length % 5) + 1}`;
 
   useEffect(() => {
     resetUsage({ roomId, userId });
@@ -87,12 +88,21 @@ export function MainScene() {
   };
 
   const vapeOptions = [
-    { id: "v1", src: VAPE_IMAGE_1, label: "이지스", glowA: "255, 173, 92", glowB: "255, 92, 170" },
-    { id: "v2", src: VAPE_IMAGE_2, label: "부푸", glowA: "120, 220, 255", glowB: "80, 130, 255" },
-    { id: "v3", src: VAPE_IMAGE_3, label: "말론", glowA: "162, 255, 118", glowB: "72, 216, 138" },
-    { id: "v4", src: VAPE_IMAGE_4, label: "일회용", glowA: "255, 120, 245", glowB: "170, 92, 255" },
+    { id: "v1", src: VAPE_IMAGE_1, label: "이지스", glowA: "255, 173, 92", glowB: "255, 92, 170", imageScale: 1.0 },
+    { id: "v2", src: VAPE_IMAGE_2, label: "부푸", glowA: "120, 220, 255", glowB: "80, 130, 255", imageScale: 1.4 },
+    { id: "v3", src: VAPE_IMAGE_3, label: "말론", glowA: "162, 255, 118", glowB: "72, 216, 138", imageScale: 1.08 },
+    { id: "v4", src: VAPE_IMAGE_4, label: "일회용", glowA: "255, 120, 245", glowB: "170, 92, 255", imageScale: 1.16 },
   ] as const;
   const selectedVapeOption = vapeOptions.find((v) => v.src === vapeImageSrc) ?? vapeOptions[0];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // 선택 패널 열기 전에 썸네일/원본 이미지를 미리 로드
+    for (const opt of vapeOptions) {
+      const img = new Image();
+      img.src = opt.src;
+    }
+  }, []);
 
   const applyStatsForMyAction = (incrementTotalBy: number) => {
     incrementMy({ roomId, userId });
@@ -123,7 +133,7 @@ export function MainScene() {
     addMessage({
       id,
       roomId,
-      nickname: nickname || "게스트",
+      nickname: nickname || fallbackNickname,
       text: text.slice(0, 80),
       createdAt: Date.now(),
       kind: "message",
@@ -140,7 +150,7 @@ export function MainScene() {
       <button
         data-ui-control="1"
         type="button"
-        className="pointer-events-auto fixed z-[1001] select-none rounded-full border border-white/40 bg-gradient-to-r from-fuchsia-500 via-rose-500 to-orange-400 px-4 py-2 text-[11px] font-extrabold tracking-[0.08em] text-white shadow-[0_6px_22px_rgba(255,72,170,0.45)] transition active:scale-[0.97]"
+        className="pointer-events-auto fixed z-[1001] select-none rounded-full border border-[#8ba2d5]/60 bg-gradient-to-r from-[#0b1a3a] via-[#0d2148] to-[#102a5c] px-4 py-2 text-[11px] font-extrabold tracking-[0.08em] text-white shadow-[0_6px_20px_rgba(16,42,92,0.55)] transition active:scale-[0.97]"
         style={{
           right: "calc(12px + env(safe-area-inset-right, 0px))",
           top: "calc(12px + env(safe-area-inset-top, 0px))",
@@ -148,7 +158,7 @@ export function MainScene() {
         }}
         onClick={() => setPickerOpen((v) => !v)}
       >
-        VAPE SKIN
+        전담선택
       </button>
       {pickerOpen && (
         <div
@@ -209,6 +219,7 @@ export function MainScene() {
           isPressing={isPressing}
           smokeMode={smokeMode}
           imageSrc={vapeImageSrc}
+          imageScale={selectedVapeOption.imageScale}
           glowColorA={selectedVapeOption.glowA}
           glowColorB={selectedVapeOption.glowB}
           onPressStart={onPressStart}

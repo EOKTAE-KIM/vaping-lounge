@@ -6,7 +6,9 @@
     "dev": "next dev --webpack --hostname 0.0.0.0",
     "build": "next build --webpack",
     "start": "next start --hostname 0.0.0.0 --port 3000",
-    "lint": "eslint"
+    "lint": "eslint",
+    "git:auto": "node tools/git-auto.mjs",
+    "git:auto:watch": "chokidar \"app/**/*\" \"components/**/*\" \"features/**/*\" \"hooks/**/*\" \"lib/**/*\" \"store/**/*\" \"types/**/*\" \"utils/**/*\" \"public/**/*\" -c \"npm run git:auto\" --debounce 4000"
   },
   "dependencies": {
     "framer-motion": "^12.38.0",
@@ -21,6 +23,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "chokidar-cli": "^3.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",

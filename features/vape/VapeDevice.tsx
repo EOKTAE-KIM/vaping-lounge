@@ -10,6 +10,7 @@ type Props = {
   isPressing: boolean;
   smokeMode: SmokeMode;
   imageSrc: string;
+  imageScale?: number;
   glowColorA: string;
   glowColorB: string;
   disabled?: boolean;
@@ -28,6 +29,7 @@ export function VapeDevice({
   isPressing,
   smokeMode,
   imageSrc,
+  imageScale = 1,
   glowColorA,
   glowColorB,
   onPressStart,
@@ -324,7 +326,7 @@ export function VapeDevice({
           src={imageSrc}
           alt="전자담배"
           draggable={false}
-          className="pointer-events-none h-full w-full select-none"
+          className="pointer-events-none h-full w-full select-none object-contain"
           style={{
             userSelect: "none",
             WebkitUserSelect: "none",
@@ -337,7 +339,7 @@ export function VapeDevice({
             filter: `drop-shadow(0px 0px ${6 + reducedGlow * 12 + (isPressing ? 4 : 0)}px rgba(${glowColorA}, ${
               0.06 + reducedGlow * 0.18
             })) drop-shadow(0px 0px ${4 + reducedGlow * 6}px rgba(${glowColorB}, ${0.025 + reducedGlow * 0.08}))`,
-            scale: isPressing ? 1.015 : 1,
+            scale: (isPressing ? 1.015 : 1) * imageScale,
           }}
           transition={{ type: "spring", stiffness: 220, damping: 18 }}
         />
