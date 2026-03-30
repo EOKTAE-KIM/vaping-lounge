@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --webpack --hostname 0.0.0.0",
     "build": "next build --webpack",
+    "build:cf": "opennextjs-cloudflare build",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "start": "next start --hostname 0.0.0.0 --port 3000",
