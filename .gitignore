@@ -21,6 +21,9 @@
 /build
 /dist
 
+# OpenNext / Cloudflare Workers
+.open-next
+
 # misc
 .DS_Store
 *.pem
