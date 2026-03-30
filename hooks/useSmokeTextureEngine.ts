@@ -460,7 +460,7 @@ export function useSmokeTextureEngine(
                 -Math.pow((Math.abs(perp) - shellRadius) / Math.max(0.0001, sourceWidth * 0.18), 2.0)
               );
               const core = Math.exp(-Math.pow(Math.abs(perp) / Math.max(0.0001, sourceWidth * 0.42), 2.0));
-              const donutBody = clamp01(shell - core * 0.93);
+              const donutBody = clamp01(shell - core * 0.97);
 
               const trailAxis = clamp01(1 - Math.abs(perp) / Math.max(0.0001, sourceWidth * 0.95));
               const tailGate = clamp01((nearestCenter + spacing * 0.48 - along01) / (spacing * 1.8));
@@ -471,10 +471,14 @@ export function useSmokeTextureEngine(
                 1
               );
               const tailStrand = Math.pow(clamp01(tailNoise * 1.25 - 0.2), 1.35);
+              // trailAxis는 perp≈0에서 최대라 링 구멍 중앙이 밝게 보임 → 반지 방향으로만 꼬리 유지
+              const tailHubFade = smoothstep01FromRange(
+                (Math.abs(perp) - sourceWidth * 0.1) / Math.max(0.0001, sourceWidth * 0.52)
+              );
 
               density += sourceGate * 0.1 * (0.7 + 0.6 * sideWarp) * pressBoost;
               density += sourceGate * donutBody * packetMask * (0.72 + 0.36 * pressBoost);
-              density += sourceGate * trailAxis * tailGate * tailStrand * (0.22 + 0.24 * pressBoost);
+              density += sourceGate * trailAxis * tailGate * tailStrand * (0.22 + 0.24 * pressBoost) * tailHubFade;
             } else if (smokeModeRef.current === "dragon" && kind === "trick") {
               // 용의 몸통처럼 S자 흐름을 강조: 주축을 따라 리지(ridge)를 여러 개 겹친다.
               const bodyWave = Math.sin(along * 24.0 - t * 7.2 + sNoise * 4.0);

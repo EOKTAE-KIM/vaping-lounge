@@ -94,11 +94,14 @@ float ringDensity(vec2 uv, float timeSec) {
     float edge = annulus * hole;
     float life = 1.0 - smoothstep(0.08, 3.2, age);
 
-    // trailing wisp behind ring impulse
+    // trailing wisp behind ring impulse (링 중심(p≈0)에서는 tail이 최대가 되어 ‘빛’처럼 보이므로 반지 방향에서만 유지)
     float behind = clamp(dot(p, -dir), 0.0, 1.0);
     float tail = exp(-behind * 6.8) * exp(-abs(dot(p, vec2(-dir.y, dir.x))) * 7.6);
     tail *= smoothstep(0.03, 0.85, age);
     tail *= 0.72 + 0.28 * breakup2;
+    float r = length(p);
+    float onRing = smoothstep(radius * 0.18, radius * 0.62, r);
+    tail *= onRing;
 
     float earlyImpulse = 1.0 + 0.65 * exp(-age * 9.5);
     accum += edge * life * earlyImpulse * (0.62 + breakup * 0.52);
@@ -111,41 +114,60 @@ void main() {
   vec2 uv = v_uv;
   vec2 pn = u_nozzle;
   float vis = clamp(u_visibility, 0.0, 1.0);
-  float carry = clamp(u_carry, 0.0, 1.2);
+  float carry = clamp(u_carry, 0.0, 1.75);
   float press = clamp(u_intensity / 1.5, 0.0, 1.0);
   float hold = clamp(u_press_duration / 6.0, 0.0, 1.0);
 
   vec2 p = (uv - vec2(0.5)) * vec2(u_aspect, 1.0);
-  vec2 flowDir = normalize(vec2(0.28, -1.0));
+  float flowBoost = 1.0 + 0.52 * press + 0.3 * hold + 0.18 * carry;
+  float tWarp = u_time * flowBoost;
   vec2 warp = vec2(
-    fbm3(vec3(p * 1.8 + vec2(0.0, u_time * 0.018), u_time * 0.05)),
-    fbm3(vec3(p * 1.7 + vec2(4.3, u_time * 0.017), u_time * 0.05))
+    fbm3(vec3(p * 1.8 + vec2(0.0, tWarp * 0.028), tWarp * 0.078)),
+    fbm3(vec3(p * 1.7 + vec2(4.3, tWarp * 0.026), tWarp * 0.078))
   ) - 0.5;
-  p += warp * (u_low_power > 0.5 ? 0.085 : 0.12);
+  float warpAmp = u_low_power > 0.5 ? 0.10 : 0.148;
+  p += warp * warpAmp;
 
-  float base = fbm3(vec3(p * 1.25 + flowDir * u_time * 0.05, u_time * 0.04));
-  float mid = fbm3(vec3(p * 2.6 + flowDir * u_time * 0.08 + warp * 0.8, u_time * 0.08));
-  float wispy = fbm3(vec3(p * 5.2 + flowDir * u_time * 0.13 + warp * 1.25, u_time * 0.12));
+  // 단일 방향·sin 기반 흔들림 대신, 화면마다 다른 2D 표류로 비등방적으로 흩어지게 함
+  vec2 driftA = vec2(
+    fbm3(vec3(p * 1.12 + vec2(0.6, 1.1), u_time * 0.084)) - 0.5,
+    fbm3(vec3(p * 1.1 + vec2(9.2, 3.4), u_time * 0.079)) - 0.5
+  );
+  vec2 driftB = vec2(
+    fbm3(vec3(p * 2.35 + vec2(4.0, 7.7), u_time * 0.11)) - 0.5,
+    fbm3(vec3(p * 2.32 + vec2(11.0, 1.2), u_time * 0.105)) - 0.5
+  );
+  vec2 driftC = vec2(
+    fbm3(vec3(p * 4.9 + vec2(2.3, 5.9), u_time * 0.14)) - 0.5,
+    fbm3(vec3(p * 4.85 + vec2(8.8, 6.1), u_time * 0.138)) - 0.5
+  );
+
+  float f0 = 0.052 * flowBoost;
+  float f1 = 0.095 * flowBoost;
+  float f2 = 0.155 * flowBoost;
+  float base = fbm3(vec3(p * 1.25 + driftA * u_time * f0 * 2.35, u_time * 0.055 * flowBoost));
+  float mid = fbm3(vec3(p * 2.6 + driftB * u_time * f1 * 2.12 + warp * 0.85, u_time * 0.1 * flowBoost));
+  float wispy = fbm3(vec3(p * 5.2 + driftC * u_time * f2 * 1.95 + warp * 1.3, u_time * 0.155 * flowBoost));
 
   float band = 1.0 - smoothstep(0.18, 0.82, abs(uv.y - 0.5));
-  float veil = base * 0.46 + mid * 0.38 + wispy * 0.16;
-  veil *= (0.58 + band * 0.46);
+  float veil = base * 0.5 + mid * 0.4 + wispy * 0.18;
+  veil *= (0.62 + band * 0.48);
 
   vec2 dn = uv - pn;
-  float disturb = exp(-dot(dn, dn) * 13.0) * (0.1 + 0.28 * press);
+  float disturb = exp(-dot(dn, dn) * 12.0) * (0.14 + 0.4 * press);
   disturb *= smoothstep(-0.2, 0.35, -dn.y);
 
-  float dens = veil + disturb + carry * 0.11;
-  dens *= 0.78 + hold * 0.18;
+  float dens = veil + disturb + carry * 0.16;
+  dens *= 0.84 + hold * 0.24;
 
   float ring = ringDensity(uv, u_time);
   dens += ring;
 
-  float a = smoothstep(0.28, 0.76, dens);
-  a = pow(a, 1.02);
-  a *= 0.74 + 0.22 * clamp(press + carry * 0.24, 0.0, 1.0);
-  a *= u_low_power > 0.5 ? 0.76 : 1.0;
-  a = clamp(a, 0.0, 0.82);
+  float a = smoothstep(0.24, 0.7, dens);
+  a = pow(a, 0.98);
+  a *= 0.78 + 0.26 * clamp(press + carry * 0.28, 0.0, 1.0);
+  a *= u_low_power > 0.5 ? 0.78 : 1.0;
+  a = clamp(a, 0.0, 0.9);
   a *= vis;
 
   vec3 hi = vec3(0.85, 0.88, 0.93);

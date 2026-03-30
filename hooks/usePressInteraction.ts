@@ -91,7 +91,7 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
       onPressCountOnce(mode);
 
       // 클릭 직후 연기량을 더 크게 체감하도록 시작 강도 추가 상향
-      setSmokeIntensity(mode === "normal" ? 0.3 : mode === "donut" ? 1.15 : 0.72);
+      setSmokeIntensity(mode === "normal" ? 0.38 : mode === "donut" ? 1.22 : 0.78);
       stopRaf();
       rafRef.current = requestAnimationFrame(tickLoopRef.current);
     },
