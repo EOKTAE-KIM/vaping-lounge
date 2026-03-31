@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUserSessionStore } from "@/store/useUserSessionStore";
 import { useUIStore } from "@/store/useUIStore";
 import { useUsageStore } from "@/store/useUsageStore";
@@ -51,6 +51,10 @@ export function MainScene() {
   const messages = useChatStore((s) => s.messages);
   const nickname = useUserSessionStore((s) => s.nickname);
   const [chatText, setChatText] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(0);
+  const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fallbackNickname = `억돌이${(userId.length % 5) + 1}`;
 
   const { sendMessage } = useChatRoom({
@@ -127,7 +131,56 @@ export function MainScene() {
     applyStatsForMyAction(1);
   };
 
-  const { onPressStart, onPressEnd, onLongPress } = usePressInteraction(selectedTrick, onPressCountOnce);
+  const { onPressStart, onPressEnd, onLongPress } = usePressInteraction(
+    selectedTrick,
+    onPressCountOnce,
+    () => {
+      if (lockTimerRef.current != null) {
+        clearTimeout(lockTimerRef.current);
+      }
+      const nextLockUntil = Date.now() + 5000;
+      setLockUntil(nextLockUntil);
+      setNowMs(Date.now());
+      setIsLocked(true);
+      lockTimerRef.current = setTimeout(() => {
+        setIsLocked(false);
+        setLockUntil(0);
+        lockTimerRef.current = null;
+      }, 5000);
+    }
+  );
+
+  useEffect(() => {
+    if (!isLocked) return;
+    const tick = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 120);
+    return () => window.clearInterval(tick);
+  }, [isLocked]);
+
+  useEffect(() => {
+    return () => {
+      if (lockTimerRef.current != null) {
+        clearTimeout(lockTimerRef.current);
+        lockTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  const handlePressStart: typeof onPressStart = (payload, modeOverride) => {
+    if (isLocked) return;
+    onPressStart(payload, modeOverride);
+  };
+
+  const handlePressEnd = () => {
+    if (isLocked) return;
+    onPressEnd();
+  };
+
+  const handleLongPress = () => {
+    if (isLocked) return;
+    onLongPress();
+  };
 
   const sendChat = async () => {
     const text = chatText.trim();
@@ -208,20 +261,35 @@ export function MainScene() {
       />
       <FloatingChatCloud messages={messages} />
       {/* WebKit: 부모 pointer-events-none이면 자식 터치가 먹지 않는 사례가 있어 auto 사용 (빈 영역은 아래 레이어로 통과하지 않음) */}
-      <div className="pointer-events-auto absolute inset-0 z-[120] isolate flex items-center justify-center px-4">
+      <div
+        className={`pointer-events-auto absolute inset-0 z-[120] isolate flex items-center justify-center px-4 transition ${
+          isLocked ? "opacity-55 saturate-50" : "opacity-100"
+        }`}
+      >
         <VapeDevice
           glow={smokeMode === "normal" ? 0.35 + smokeIntensity * 0.55 : 0.45 + smokeIntensity * 0.6}
+          disabled={isLocked}
           isPressing={isPressing}
           smokeMode={smokeMode}
           imageSrc={vapeImageSrc}
           imageScale={selectedVapeOption.imageScale}
           glowColorA={selectedVapeOption.glowA}
           glowColorB={selectedVapeOption.glowB}
-          onPressStart={onPressStart}
-          onPressEnd={onPressEnd}
-          onLongPress={onLongPress}
+          onPressStart={handlePressStart}
+          onPressEnd={handlePressEnd}
+          onLongPress={handleLongPress}
         />
       </div>
+      {isLocked && (
+        <div className="pointer-events-none absolute inset-0 z-[130] flex items-start justify-center pt-[13vh]">
+          <div className="px-2 py-1 text-center text-white">
+            <div className="text-sm font-semibold tracking-[0.08em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]">과열 쿨타임</div>
+            <div className="text-xl font-extrabold text-amber-300">
+              {Math.max(0, Math.ceil((lockUntil - nowMs) / 1000))}초
+            </div>
+          </div>
+        </div>
+      )}
       <div
         data-ui-control="1"
         className="pointer-events-auto absolute z-[1001] flex items-center gap-2 rounded-2xl border border-white/20 bg-black/70 px-3 py-2"

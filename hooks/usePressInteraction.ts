@@ -16,7 +16,11 @@ function resolveSmokeMode(trick: TrickType): SmokeMode {
   return "normal"; // turtle/double/waterfall은 아직 normal로 매핑
 }
 
-export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: SmokeMode) => void) {
+export function usePressInteraction(
+  trick: TrickType,
+  onPressCountOnce: (mode: SmokeMode) => void,
+  onOverheat?: () => void
+) {
   const setIsPressing = usePressInteractionStore((s) => s.setIsPressing);
   const setSmokeMode = usePressInteractionStore((s) => s.setSmokeMode);
   const setSmokeIntensity = usePressInteractionStore((s) => s.setSmokeIntensity);
@@ -30,6 +34,7 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
   const countedRef = useRef(false);
   const clickCountRef = useRef(0);
   const lastClickAtRef = useRef(0);
+  const overheatFiredRef = useRef(false);
 
   const stopRaf = useCallback(() => {
     if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
@@ -50,6 +55,20 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
       // 클릭 직후 더 풍성하게 차오르도록 상승 속도/상한 상향
       const intensity = Math.min(1.8, dt <= 0 ? 0 : dt / 360);
 
+      // 4초 이상 누르고 있으면 한 번만 과열 콜백 호출
+      if (!overheatFiredRef.current && dt >= 4000) {
+        overheatFiredRef.current = true;
+        countedRef.current = false;
+        stopRaf();
+        stopReleaseTimer();
+        setIsPressing(false);
+        setSmokeIntensity(0);
+        if (onOverheat) {
+          onOverheat();
+        }
+        return;
+      }
+
       // 너무 잦은 setState 방지(렌더/연기 성능)
       const prev = lastSetRef.current;
       if (Math.abs(intensity - prev) > 0.028) {
@@ -59,7 +78,7 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
 
       rafRef.current = requestAnimationFrame(tickLoopRef.current);
     };
-  }, [setSmokeIntensity]);
+  }, [onOverheat, setIsPressing, setSmokeIntensity, stopRaf, stopReleaseTimer]);
 
   const onPressStart = useCallback(
     (payload: EmitterPoint, modeOverride?: SmokeMode) => {
@@ -88,6 +107,7 @@ export function usePressInteraction(trick: TrickType, onPressCountOnce: (mode: S
       pressStartAtRef.current = performance.now();
       lastSetRef.current = -1;
       countedRef.current = true;
+      overheatFiredRef.current = false;
       onPressCountOnce(mode);
 
       // 클릭 직후 연기량을 더 크게 체감하도록 시작 강도 추가 상향
