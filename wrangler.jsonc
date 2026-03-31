@@ -17,6 +17,13 @@
       "service": "vaping-lounge"
     }
   ],
+  "kv_namespaces": [
+    {
+      "binding": "CHAT_KV",
+      "id": "ad41bb854add40af991dcd4b3d7f845d",
+      "preview_id": "9bdb795836574101be8ae1fd9ab60ae9"
+    }
+  ],
   "images": {
     "binding": "IMAGES"
   }

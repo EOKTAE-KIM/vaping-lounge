@@ -1,6 +1,7 @@
 import type { ChatEvent } from "@/types/chat";
 import type { ChatMessage } from "@/types/chat";
 import type { RoomId } from "@/types/room";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 const ALLOWED_ROOMS = new Set<RoomId>(["lounge", "donutPractice", "turtleChallenge", "quietRoom"]);
 
@@ -11,6 +12,9 @@ type RoomState = {
 };
 
 const rooms = new Map<RoomId, RoomState>();
+const CHAT_KV_KEY_PREFIX = "chat-room-log:";
+const CHAT_KV_TTL_SECONDS = 60 * 60 * 24;
+const CHAT_KV_MAX_MESSAGES = 120;
 
 function newId(): string {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -20,6 +24,47 @@ function newId(): string {
 
 function encodeEvent(event: ChatEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
+}
+
+function getChatKv(): KVNamespace | null {
+  try {
+    const ctx = getCloudflareContext();
+    const kv = (ctx.env as CloudflareEnv & { CHAT_KV?: KVNamespace }).CHAT_KV;
+    return kv ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const roomLogKey = (roomId: RoomId) => `${CHAT_KV_KEY_PREFIX}${roomId}`;
+
+type RoomLogPayload = {
+  messages: ChatMessage[];
+};
+
+async function appendMessageToSharedLog(roomId: RoomId, message: ChatMessage) {
+  const kv = getChatKv();
+  if (!kv) return;
+  const key = roomLogKey(roomId);
+
+  // KV는 원자적 append가 없어 latest 상태를 읽고 덮어쓰는 방식으로 유지한다.
+  const raw = await kv.get(key);
+  const parsed = raw ? (JSON.parse(raw) as RoomLogPayload) : { messages: [] };
+  const next = [...parsed.messages.filter((m) => m.id !== message.id), message].slice(-CHAT_KV_MAX_MESSAGES);
+  await kv.put(key, JSON.stringify({ messages: next }), { expirationTtl: CHAT_KV_TTL_SECONDS });
+}
+
+export async function readSharedRoomMessages(roomId: RoomId): Promise<ChatMessage[]> {
+  const kv = getChatKv();
+  if (!kv) return [];
+  const raw = await kv.get(roomLogKey(roomId));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as RoomLogPayload;
+    return Array.isArray(parsed.messages) ? parsed.messages : [];
+  } catch {
+    return [];
+  }
 }
 
 function broadcastToRoom(roomId: RoomId, event: ChatEvent) {
@@ -86,7 +131,8 @@ export function subscribeRoom(
   };
 }
 
-export function publishMessage(roomId: RoomId, message: ChatMessage) {
+export async function publishMessage(roomId: RoomId, message: ChatMessage) {
+  await appendMessageToSharedLog(roomId, message);
   broadcastToRoom(roomId, { kind: "message", message });
 }
 

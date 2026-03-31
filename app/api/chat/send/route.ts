@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     kind: "message",
   };
 
-  publishMessage(roomId, message);
+  await publishMessage(roomId, message);
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,

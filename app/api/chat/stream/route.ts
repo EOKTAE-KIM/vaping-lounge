@@ -1,4 +1,4 @@
-import { subscribeRoom, sanitizeRoomId } from "@/lib/chat/server/chatHub";
+import { readSharedRoomMessages, sanitizeRoomId, subscribeRoom } from "@/lib/chat/server/chatHub";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +17,9 @@ export async function GET(req: Request) {
 
   const encoder = new TextEncoder();
   let unsubscribe: (() => void) | null = null;
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  const seenMessageIds = new Set<string>();
+  let lastSeenAt = 0;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -27,8 +30,32 @@ export async function GET(req: Request) {
       push(`: connected ${Date.now()}\n\n`);
 
       unsubscribe = subscribeRoom(roomId, nickname, push);
+
+      const pushRemoteMessages = async () => {
+        try {
+          const messages = await readSharedRoomMessages(roomId);
+          for (const message of messages) {
+            if (message.createdAt < lastSeenAt) continue;
+            if (seenMessageIds.has(message.id)) continue;
+            seenMessageIds.add(message.id);
+            if (message.createdAt > lastSeenAt) lastSeenAt = message.createdAt;
+            push(`data: ${JSON.stringify({ kind: "message", message })}\n\n`);
+          }
+        } catch {
+          /* ignore polling errors */
+        }
+      };
+
+      void pushRemoteMessages();
+      pollTimer = setInterval(() => {
+        void pushRemoteMessages();
+      }, 800);
     },
     cancel() {
+      if (pollTimer != null) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
       unsubscribe?.();
     },
   });
