@@ -10,8 +10,14 @@ import { useUsageStore } from "@/store/useUsageStore";
 import { useUserSessionStore } from "@/store/useUserSessionStore";
 import { getChatClient } from "@/lib/chat/chatClientFactory";
 
-export function useChatRoom(args: { roomId: RoomId; enabled: boolean; onNeedNickname?: () => void }) {
-  const { roomId, enabled } = args;
+export function useChatRoom(args: {
+  roomId: RoomId;
+  enabled: boolean;
+  onNeedNickname?: () => void;
+  /** 스토어에 닉네임이 없을 때(예: 하단 플로팅 채팅) 게스트 표시용으로 사용 */
+  nicknameOverride?: string | null;
+}) {
+  const { roomId, enabled, nicknameOverride } = args;
 
   const nickname = useUserSessionStore((s) => s.nickname);
   const userId = useUserSessionStore((s) => s.userId);
@@ -58,8 +64,8 @@ export function useChatRoom(args: { roomId: RoomId; enabled: boolean; onNeedNick
     // chat panel이 꺼져 있으면 불필요한 연결/구독을 하지 않음
     if (!enabled) return;
 
-    // 닉네임이 없으면 연결할 수 없음
-    if (!nickname) {
+    const effectiveNickname = (nicknameOverride ?? nickname)?.trim();
+    if (!effectiveNickname) {
       args.onNeedNickname?.();
       return;
     }
@@ -83,7 +89,16 @@ export function useChatRoom(args: { roomId: RoomId; enabled: boolean; onNeedNick
       // subscribe 먼저 등록 (mock provider가 connect 이후 broadcast 타이밍에 의존)
       unsubscribe = c.subscribe((event) => updateFromEvent(event));
       // connect
-      await c.connect({ roomId, nickname, session: { nickname, roomId, joinedAt: Date.now(), userId } });
+      await c.connect({
+        roomId,
+        nickname: effectiveNickname,
+        session: {
+          nickname: nickname ?? effectiveNickname,
+          roomId,
+          joinedAt: Date.now(),
+          userId,
+        },
+      });
     })();
 
     return () => {
@@ -92,7 +107,7 @@ export function useChatRoom(args: { roomId: RoomId; enabled: boolean; onNeedNick
       c.disconnect().catch(() => {});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, nickname, roomId, updateFromEvent]);
+  }, [enabled, nickname, nicknameOverride, roomId, updateFromEvent]);
 
   const sendMessage = useCallback(
     async (text: string) => {

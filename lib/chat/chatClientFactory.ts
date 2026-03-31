@@ -2,15 +2,23 @@ import type { ChatRealtimeClient } from "@/types/chatProvider";
 import type { RoomId } from "@/types/room";
 
 import { createMockChatClient } from "./providers/mockChatProvider";
+import { createSseChatProvider } from "./providers/sseChatProvider";
 
+/**
+ * - 기본: SSE (`/api/chat/stream`, `/api/chat/send`) — 같은 Next 서버에 붙은 기기끼리 실시간 공유
+ * - `NEXT_PUBLIC_CHAT_TRANSPORT=mock` 이면 로컬 전용 mock
+ */
 export function getChatClient(): ChatRealtimeClient {
-  // MVP에서는 mock만 구현. 추후 Firebase/Supabase/Socket 클라이언트로 교체 가능.
-  // 예: NEXT_PUBLIC_CHAT_PROVIDER="mock" | "firebase" | "supabase" | "socket"
-  const provider = process.env.NEXT_PUBLIC_CHAT_PROVIDER ?? "mock";
+  const transport = (process.env.NEXT_PUBLIC_CHAT_TRANSPORT ?? "sse").toLowerCase();
 
-  if (provider === "mock") return createMockChatClient();
+  if (transport === "mock") {
+    return createMockChatClient();
+  }
 
-  // 기본 fallback
+  if (typeof window !== "undefined") {
+    return createSseChatProvider();
+  }
+
   return createMockChatClient();
 }
 

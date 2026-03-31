@@ -14,6 +14,7 @@ import { InteractionSmokeCanvas } from "@/features/smoke/InteractionSmokeCanvas"
 import { usePressInteractionStore } from "@/store/usePressInteractionStore";
 import { usePressInteraction } from "@/hooks/usePressInteraction";
 import { useChatStore } from "@/store/useChatStore";
+import { useChatRoom } from "@/hooks/useChatRoom";
 import { FloatingChatCloud } from "@/features/chat/FloatingChatCloud";
 
 const DEFAULT_VAPE_IMAGE = "/eezys.png";
@@ -48,10 +49,15 @@ export function MainScene() {
   const smokeIntensity = usePressInteractionStore((s) => s.smokeIntensity);
   const emitter = usePressInteractionStore((s) => s.emitter);
   const messages = useChatStore((s) => s.messages);
-  const addMessage = useChatStore((s) => s.addMessage);
   const nickname = useUserSessionStore((s) => s.nickname);
   const [chatText, setChatText] = useState("");
   const fallbackNickname = `억돌이${(userId.length % 5) + 1}`;
+
+  const { sendMessage } = useChatRoom({
+    roomId,
+    enabled: true,
+    nicknameOverride: nickname ?? fallbackNickname,
+  });
 
   useEffect(() => {
     resetUsage({ roomId, userId });
@@ -123,21 +129,10 @@ export function MainScene() {
 
   const { onPressStart, onPressEnd, onLongPress } = usePressInteraction(selectedTrick, onPressCountOnce);
 
-  const sendChat = () => {
+  const sendChat = async () => {
     const text = chatText.trim();
     if (!text) return;
-    const id =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    addMessage({
-      id,
-      roomId,
-      nickname: nickname || fallbackNickname,
-      text: text.slice(0, 80),
-      createdAt: Date.now(),
-      kind: "message",
-    });
+    await sendMessage(text.slice(0, 80));
     setChatText("");
   };
 

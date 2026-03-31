@@ -119,38 +119,48 @@ void main() {
   float hold = clamp(u_press_duration / 6.0, 0.0, 1.0);
 
   vec2 p = (uv - vec2(0.5)) * vec2(u_aspect, 1.0);
-  float flowBoost = 1.0 + 0.52 * press + 0.3 * hold + 0.18 * carry;
-  float tWarp = u_time * flowBoost;
+  // 전체 시간 스케일: 실제 연기는 느리게 상승·회전 (꿀렁거림 완화)
+  float tSlow = u_time * 0.38;
+  float flowBoost = 1.0 + 0.22 * press + 0.14 * hold + 0.1 * carry;
+  float tWarp = tSlow * flowBoost;
   vec2 warp = vec2(
-    fbm3(vec3(p * 1.8 + vec2(0.0, tWarp * 0.028), tWarp * 0.078)),
-    fbm3(vec3(p * 1.7 + vec2(4.3, tWarp * 0.026), tWarp * 0.078))
+    fbm3(vec3(p * 1.45 + vec2(0.0, tWarp * 0.012), tWarp * 0.034)),
+    fbm3(vec3(p * 1.4 + vec2(4.3, tWarp * 0.011), tWarp * 0.034))
   ) - 0.5;
-  float warpAmp = u_low_power > 0.5 ? 0.10 : 0.148;
+  float warpAmp = u_low_power > 0.5 ? 0.055 : 0.078;
   p += warp * warpAmp;
 
-  // 단일 방향·sin 기반 흔들림 대신, 화면마다 다른 2D 표류로 비등방적으로 흩어지게 함
+  // 느린 대형 소용돌이(표류 벡터는 시간 변화를 작게)
+  float tDrift = tSlow * flowBoost;
   vec2 driftA = vec2(
-    fbm3(vec3(p * 1.12 + vec2(0.6, 1.1), u_time * 0.084)) - 0.5,
-    fbm3(vec3(p * 1.1 + vec2(9.2, 3.4), u_time * 0.079)) - 0.5
+    fbm3(vec3(p * 0.95 + vec2(0.6, 1.1), tDrift * 0.032)) - 0.5,
+    fbm3(vec3(p * 0.92 + vec2(9.2, 3.4), tDrift * 0.03)) - 0.5
   );
   vec2 driftB = vec2(
-    fbm3(vec3(p * 2.35 + vec2(4.0, 7.7), u_time * 0.11)) - 0.5,
-    fbm3(vec3(p * 2.32 + vec2(11.0, 1.2), u_time * 0.105)) - 0.5
+    fbm3(vec3(p * 1.85 + vec2(4.0, 7.7), tDrift * 0.042)) - 0.5,
+    fbm3(vec3(p * 1.82 + vec2(11.0, 1.2), tDrift * 0.04)) - 0.5
   );
   vec2 driftC = vec2(
-    fbm3(vec3(p * 4.9 + vec2(2.3, 5.9), u_time * 0.14)) - 0.5,
-    fbm3(vec3(p * 4.85 + vec2(8.8, 6.1), u_time * 0.138)) - 0.5
+    fbm3(vec3(p * 3.6 + vec2(2.3, 5.9), tDrift * 0.052)) - 0.5,
+    fbm3(vec3(p * 3.55 + vec2(8.8, 6.1), tDrift * 0.05)) - 0.5
   );
 
-  float f0 = 0.052 * flowBoost;
-  float f1 = 0.095 * flowBoost;
-  float f2 = 0.155 * flowBoost;
-  float base = fbm3(vec3(p * 1.25 + driftA * u_time * f0 * 2.35, u_time * 0.055 * flowBoost));
-  float mid = fbm3(vec3(p * 2.6 + driftB * u_time * f1 * 2.12 + warp * 0.85, u_time * 0.1 * flowBoost));
-  float wispy = fbm3(vec3(p * 5.2 + driftC * u_time * f2 * 1.95 + warp * 1.3, u_time * 0.155 * flowBoost));
+  // 상승·완만한 횡류(주기적이라 장시간도 안정, 실제 연기의 큰 덩어리 움직임)
+  vec2 buoy = vec2(
+    0.09 * sin(tDrift * 0.22 + p.x * 0.85 + p.y * 0.4),
+    -0.12 * sin(tDrift * 0.18 + p.x * 0.5) - 0.06 * press
+  );
+  p += buoy * 0.28;
+
+  float f0 = 0.028 * flowBoost;
+  float f1 = 0.048 * flowBoost;
+  float f2 = 0.072 * flowBoost;
+  float base = fbm3(vec3(p * 1.12 + driftA * tDrift * f0 * 1.15, tDrift * 0.028 * flowBoost));
+  float mid = fbm3(vec3(p * 2.15 + driftB * tDrift * f1 * 1.05 + warp * 0.55, tDrift * 0.045 * flowBoost));
+  float wispy = fbm3(vec3(p * 3.8 + driftC * tDrift * f2 * 0.88 + warp * 0.9, tDrift * 0.062 * flowBoost));
 
   float band = 1.0 - smoothstep(0.18, 0.82, abs(uv.y - 0.5));
-  float veil = base * 0.5 + mid * 0.4 + wispy * 0.18;
+  float veil = base * 0.56 + mid * 0.36 + wispy * 0.08;
   veil *= (0.62 + band * 0.48);
 
   vec2 dn = uv - pn;

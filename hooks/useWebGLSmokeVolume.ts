@@ -225,11 +225,11 @@ export function useWebGLSmokeVolume(canvasRef: RefObject<HTMLCanvasElement | nul
         smokeOpacityRef.current = Math.min(1, smokeOpacityRef.current + dt * 3.55);
         carryRef.current = Math.min(1.72, carryRef.current + dt * 0.4);
       } else {
-        smokeOpacityRef.current = Math.max(0, smokeOpacityRef.current - dt * 0.44);
+        smokeOpacityRef.current = Math.max(0, smokeOpacityRef.current - dt * 1.05);
         if (smokeOpacityRef.current > 0.002) {
-          intensityFrozenRef.current = Math.max(0, intensityFrozenRef.current - dt * 0.4);
+          intensityFrozenRef.current = Math.max(0, intensityFrozenRef.current - dt * 0.88);
         }
-        carryRef.current = Math.max(0, carryRef.current - dt * 0.14);
+        carryRef.current = Math.max(0, carryRef.current - dt * 0.36);
       }
 
       const spawnRingNow = (ring: {
@@ -326,8 +326,8 @@ export function useWebGLSmokeVolume(canvasRef: RefObject<HTMLCanvasElement | nul
       // carry가 남아있는 동안에도 그려서 재클릭 시 검은 프레임 깜빡임을 막고,
       // 클릭 중 과도한 밝기 점프를 줄이기 위해 visibility를 완만하게 제한한다.
       const visibility = Math.max(
-        carryRef.current * 0.58,
-        smokeOpacityRef.current * (0.62 + carryRef.current * 0.14)
+        carryRef.current * 0.38,
+        smokeOpacityRef.current * (0.5 + carryRef.current * 0.08)
       );
       const shouldDraw = visibility > 0.002;
       if (!shouldDraw) {
